@@ -1,17 +1,26 @@
 from flask import Flask, request, jsonify
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import tensorflow as tf
 import cv2
 import os
+import sys
 import numpy as np
 from mtcnn.mtcnn import MTCNN
-import matplotlib.pyplot as plt
+from google.cloud import storage
+from dotenv import load_dotenv
+from google.oauth2.service_account import Credentials
+import json
+
+load_dotenv()
 
 #function for preprocessing image
 class FACELOADING:
     def __init__(self):
         self.target_size = (160, 160)
         self.detector = MTCNN()
+        service_account = json.loads(os.environ.get("GOOGLE_CLOUD_CREDENTIALS"))
+        creds = Credentials.from_service_account_info(service_account)
+        self.storage_client = storage.Client(credentials=creds)
 
     def extract_face(self, img):
         # Convert BGR to RGB
@@ -36,6 +45,25 @@ class FACELOADING:
         else:
             # Return None if no face is detected
             return None
+
+    def load_faces_from_gcs(self, bucket_name, dir):
+        # LOADING GOOGLE CLOUD BUCKET WITH CREDENTIALS
+        bucket = self.storage_client.get_bucket(bucket_name)
+        blobs = bucket.list_blobs(prefix=dir)
+
+        faces = []
+        for blob in blobs:
+            try:
+                img_bytes = blob.download_as_bytes()
+                img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+
+                single_face = self.extract_face(img)
+                if single_face is not None:
+                    faces.append(single_face)
+            except Exception as e:
+                pass
+        return faces
+        
 
     def load_faces(self, dir):
         faces = []
@@ -67,17 +95,29 @@ model = load_model('facematching.h5', custom_objects=custom_objects)
 @app.route("/data/verif_image/ojiie", methods=["GET"])
 def predict():
     try:
-        # preprocess base images and verif images, the count of base image should be the same with verif image
-
-        base_images_dir = './data/base_image/ojiie'
-        base_images = loader.load_faces(base_images_dir)
+        base_bucket_name = 'skillshift-bucket'
+        base_images_dir = 'photos/freelancers/freelancer_blabla123ganteng/base_image'
+        base_images = loader.load_faces_from_gcs(base_bucket_name, base_images_dir)
         base_images = np.array(base_images)
 
-        verif_image_dir = './data/verif_image/ilhan'
-        verif_image = loader.load_faces(verif_image_dir)
-        verif_image = np.array(verif_image)
+        verif_bucket_name = 'skillshift-bucket'
+        verif_images_dir = 'photos/freelancers/freelancer_blabla123ganteng/verif_image'
+        verif_images = loader.load_faces_from_gcs(verif_bucket_name, verif_images_dir)
+        verif_images = np.array(verif_images)
 
-        prediction = model.predict([base_images, verif_image])
+        prediction = model.predict([base_images, verif_images])
+
+        # preprocess base images and verif images, the count of base image should be the same with verif image
+
+        # base_images_dir = './data/base_image/ojiie'
+        # base_images = loader.load_faces(base_images_dir)
+        # base_images = np.array(base_images)
+
+        # verif_image_dir = './data/verif_image/ilhan'
+        # verif_image = loader.load_faces(verif_image_dir)
+        # verif_image = np.array(verif_image)
+
+        # prediction = model.predict([base_images, verif_image])
 
         return jsonify({"prediction": float(prediction[0][0])})
 
