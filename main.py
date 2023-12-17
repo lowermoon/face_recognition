@@ -91,35 +91,23 @@ app = Flask(__name__)
 custom_objects = {'contrastive_loss': contrastive_loss}
 model = load_model('facematching.h5', custom_objects=custom_objects)
 
-@app.route("/data/base_image/ojiie", methods=["GET"])
-@app.route("/data/verif_image/ojiie", methods=["GET"])
-def predict():
+
+@app.route("/verify/<role>/<id>", methods=["GET"])
+def predict(role, id):
     try:
         base_bucket_name = 'skillshift-bucket'
-        base_images_dir = 'photos/freelancers/freelancer_blabla123ganteng/base_image'
+        base_images_dir = 'photos/'+role+'/'+id+'/base_image'
         base_images = loader.load_faces_from_gcs(base_bucket_name, base_images_dir)
         base_images = np.array(base_images)
 
         verif_bucket_name = 'skillshift-bucket'
-        verif_images_dir = 'photos/freelancers/freelancer_blabla123ganteng/verif_image'
+        verif_images_dir = 'photos/'+role+'/'+id+'/verif_image'
         verif_images = loader.load_faces_from_gcs(verif_bucket_name, verif_images_dir)
         verif_images = np.array(verif_images)
 
         prediction = model.predict([base_images, verif_images])
 
-        # preprocess base images and verif images, the count of base image should be the same with verif image
-
-        # base_images_dir = './data/base_image/ojiie'
-        # base_images = loader.load_faces(base_images_dir)
-        # base_images = np.array(base_images)
-
-        # verif_image_dir = './data/verif_image/ilhan'
-        # verif_image = loader.load_faces(verif_image_dir)
-        # verif_image = np.array(verif_image)
-
-        # prediction = model.predict([base_images, verif_image])
-
-        return jsonify({"prediction": float(prediction[0][0])})
+        return jsonify({"prediction": float(prediction[0][0])}) # threshold dibawah 22 dia cocok, di atas 23 dia ga cocok
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500  # 500 is the HTTP status code for Internal Server Error
