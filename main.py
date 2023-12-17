@@ -96,12 +96,12 @@ model = load_model('facematching.h5', custom_objects=custom_objects)
 def predict(role, id):
     try:
         base_bucket_name = 'skillshift-bucket'
-        base_images_dir = 'photos/'+role+'/'+id+'/base_image'
+        base_images_dir = 'faceid/'+role+'/'+id+'/base_image'
         base_images = loader.load_faces_from_gcs(base_bucket_name, base_images_dir)
         base_images = np.array(base_images)
 
         verif_bucket_name = 'skillshift-bucket'
-        verif_images_dir = 'photos/'+role+'/'+id+'/verif_image'
+        verif_images_dir = 'faceid/'+role+'/'+id+'/verif_image'
         verif_images = loader.load_faces_from_gcs(verif_bucket_name, verif_images_dir)
         verif_images = np.array(verif_images)
 
